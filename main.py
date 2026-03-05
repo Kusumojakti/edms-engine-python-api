@@ -2,23 +2,41 @@ import io
 import uuid
 import PyPDF2
 import httpx
-
-from fastapi import FastAPI, Request, HTTPException
+from typing import List
+from pydantic import BaseModel, HttpUrl
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from PyPDF2 import PdfMerger
 
 app = FastAPI()
 
+class PDFMergeRequest(BaseModel):
+    urls: List[HttpUrl]
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "urls": [
+                    "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+                    "https://www.africau.edu/images/default/sample.pdf"
+                ]
+            }
+        }
 
 @app.post(
     "/api/v1/merge-pdfs",
     summary="Merge PDF files from URLs",
-    description="Download multiple PDFs from URLs and merge them into one file"
+    description="Download multiple PDFs from URLs and merge them into one file.",
+    responses={
+        200: {
+            "content": {"application/pdf": {}},
+            "description": "Returns the merged PDF file.",
+        },
+        400: {"description": "Invalid input: No URLs provided or failed to download/parse PDF."},
+        500: {"description": "Internal Server Error during PDF processing."}
+    }
 )
-async def merge_pdfs(request: Request):
-
-    body = await request.json()
-    urls = body.get("urls", [])
+async def merge_pdfs(payload: PDFMergeRequest): 
+    urls = [str(url) for url in payload.urls]
 
     if not urls:
         raise HTTPException(status_code=400, detail="No URLs provided")
@@ -27,7 +45,6 @@ async def merge_pdfs(request: Request):
 
     async with httpx.AsyncClient(timeout=30) as client:
         for url in urls:
-
             try:
                 response = await client.get(url)
 
@@ -38,7 +55,6 @@ async def merge_pdfs(request: Request):
                     )
 
                 content_type = response.headers.get("content-type", "")
-
                 if "application/pdf" not in content_type:
                     raise HTTPException(
                         status_code=400,
@@ -54,7 +70,6 @@ async def merge_pdfs(request: Request):
                     status_code=400,
                     detail=f"Error downloading {url}: {str(e)}"
                 )
-
             except Exception as e:
                 raise HTTPException(
                     status_code=500,
@@ -64,7 +79,6 @@ async def merge_pdfs(request: Request):
     output = io.BytesIO()
     merger.write(output)
     merger.close()
-
     output.seek(0)
 
     filename = f"merged_{uuid.uuid4().hex}.pdf"
