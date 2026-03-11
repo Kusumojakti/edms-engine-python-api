@@ -11,7 +11,7 @@ from PyPDF2 import PdfMerger, PdfWriter, PdfReader
 
 app = FastAPI()
 
-ASSETS_DIR = "assets"
+ASSETS_DIR = "/tmp/assets"
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
 class PDFMergeRequest(BaseModel):
