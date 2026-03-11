@@ -1,7 +1,4 @@
 # Ignore all files in the assets directory
-assets/*
-!/assets/.gitkeep
-
 .env
 .venv/
 __pycache__/
