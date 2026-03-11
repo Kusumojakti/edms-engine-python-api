@@ -1,4 +1,0 @@
-# Ignore all files in the assets directory
-.env
-.venv/
-__pycache__/
