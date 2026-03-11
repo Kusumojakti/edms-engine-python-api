@@ -2,16 +2,13 @@ import io
 import uuid
 import PyPDF2
 import httpx
-import os
 from typing import List
 from pydantic import BaseModel, HttpUrl
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
-from PyPDF2 import PdfMerger, PdfWriter
-from fastapi.staticfiles import StaticFiles
+from PyPDF2 import PdfMerger
 
 app = FastAPI()
-app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
 class PDFMergeRequest(BaseModel):
     urls: List[HttpUrl]
@@ -79,39 +76,15 @@ async def merge_pdfs(payload: PDFMergeRequest):
                     detail=f"Error processing {url}: {str(e)}"
                 )
 
-    merged_output = io.BytesIO()
-    merger.write(merged_output)
+    output = io.BytesIO()
+    merger.write(output)
     merger.close()
-    merged_output.seek(0)
-
-    PIN = "1234"  
-
-    reader = PyPDF2.PdfReader(merged_output)
-    writer = PdfWriter()
-
-    for page in reader.pages:
-        writer.add_page(page)
-
-    writer.encrypt(PIN)
-
-    encrypted_output = io.BytesIO()
-    writer.write(encrypted_output)
-    encrypted_output.seek(0)
+    output.seek(0)
 
     filename = f"merged_{uuid.uuid4().hex}.pdf"
-    assets_folder = "assets"
-
-    os.makedirs(assets_folder, exist_ok=True)
-
-    file_path = os.path.join(assets_folder, filename)
-
-    with open(file_path, "wb") as f:
-        f.write(encrypted_output.getbuffer())
-
-    encrypted_output.seek(0)
 
     return StreamingResponse(
-        encrypted_output,
+        output,
         media_type="application/pdf",
         headers={
             "Content-Disposition": f"attachment; filename={filename}"
