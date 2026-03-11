@@ -11,8 +11,10 @@ from PyPDF2 import PdfMerger, PdfWriter, PdfReader
 
 app = FastAPI()
 
-ASSETS_DIR = "assets"
-DUMMY_PIN = "1234" 
+# Configuration
+# In serverless environments (Vercel, AWS Lambda), only /tmp is writable
+ASSETS_DIR = "/tmp/assets"
+DUMMY_PIN = "1234"  # Hardcoded PIN for all merged files
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
 class PDFMergeRequest(BaseModel):
@@ -31,12 +33,15 @@ class PDFMergeRequest(BaseModel):
 @app.get("/assets/{filename}")
 async def get_asset(filename: str):
     """
-    Serves the merged PDF files from the assets folder.
-    The user will be prompted for the dummy PIN (1234) by their PDF viewer.
+    Serves the merged PDF files from the temporary assets folder.
+    Note: These files are ephemeral and will disappear when the instance restarts.
     """
     file_path = os.path.join(ASSETS_DIR, filename)
     if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(
+            status_code=404, 
+            detail="File not found or has been cleared from temporary storage."
+        )
     
     return FileResponse(
         file_path, 
@@ -81,6 +86,7 @@ async def merge_pdfs(payload: PDFMergeRequest):
                         detail=f"{url} is not a PDF"
                     )
 
+                # Append the PDF content to the merger
                 pdf_bytes = io.BytesIO(response.content)
                 merger.append(pdf_bytes)
 
@@ -89,25 +95,35 @@ async def merge_pdfs(payload: PDFMergeRequest):
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Error processing {url}: {str(e)}")
 
+    # Create an in-memory buffer for the initial merged PDF
     intermediate_output = io.BytesIO()
     merger.write(intermediate_output)
     merger.close()
     intermediate_output.seek(0)
 
+    # Prepare the final writer for encryption
     writer = PdfWriter()
     reader = PdfReader(intermediate_output)
     
+    # Add all pages to the writer
     for page in reader.pages:
         writer.add_page(page)
 
+    # Apply the dummy PIN encryption
     writer.encrypt(DUMMY_PIN)
 
+    # Generate unique filename
     filename = f"merge_{uuid.uuid4().hex}.pdf"
     file_path = os.path.join(ASSETS_DIR, filename)
 
-    with open(file_path, "wb") as f:
-        writer.write(f)
+    try:
+        # Save the encrypted file to the writable /tmp/assets folder
+        with open(file_path, "wb") as f:
+            writer.write(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
+    # Return the file as a stream for immediate download
     final_output = io.BytesIO()
     writer.write(final_output)
     final_output.seek(0)
