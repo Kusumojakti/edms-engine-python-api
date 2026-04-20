@@ -6,8 +6,8 @@ from pypdf import PdfReader, PdfWriter
 from app.config.settings import settings
 from app.utils.security import generate_headers
 
-def download_pdf(url: str, no_aggr: str) -> BytesIO:
-    headers = generate_headers(no_aggr)  # 🔥 FULL HEADER
+def download_pdf(url: str) -> BytesIO:
+    headers = generate_headers(method="GET", url=url)
 
     res = requests.get(
         url,
@@ -25,11 +25,11 @@ def download_pdf(url: str, no_aggr: str) -> BytesIO:
     return BytesIO(res.content)
 
 
-def merge_pdfs(urls: list[str], no_aggr: str) -> BytesIO:
+def merge_pdfs(urls: list[str]) -> BytesIO:
     writer = PdfWriter()
 
     for url in urls:
-        pdf_stream = download_pdf(url, no_aggr) 
+        pdf_stream = download_pdf(url)
         reader = PdfReader(pdf_stream)
 
         for page in reader.pages:

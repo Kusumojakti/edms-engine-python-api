@@ -25,3 +25,4 @@ build/
 *.tmp
 *.test
 node_modules/
+/app/utils/private_key.pem

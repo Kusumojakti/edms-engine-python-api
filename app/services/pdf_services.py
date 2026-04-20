@@ -11,10 +11,10 @@ def validate_pin(pin: str):
         raise InvalidPINException("PIN must be at least 4 characters")
 
 
-def process_merge(no_aggr: str, pin: str):
+def process_merge(no_reg: str, pin: str):
     validate_pin(pin)
 
-    documents = fetch_documents(no_aggr)
+    documents = fetch_documents(no_reg)
 
     ps, ppjf, edelivery = [], [], []
 
@@ -33,10 +33,10 @@ def process_merge(no_aggr: str, pin: str):
             edelivery.append(url)
 
     if edelivery:
-        merged = merge_pdfs(edelivery, no_aggr)
+        merged = merge_pdfs(edelivery)
 
     elif ps and ppjf:
-        merged = merge_pdfs(ps + ppjf, no_aggr)
+        merged = merge_pdfs(ps + ppjf)
 
     else:
         raise InvalidDocumentCombination(
@@ -44,6 +44,5 @@ def process_merge(no_aggr: str, pin: str):
         )
 
     secured = add_pin(merged, pin)
-    filepath = save_pdf(secured)
-
-    return filepath, secured
+    secured.seek(0)
+    return secured

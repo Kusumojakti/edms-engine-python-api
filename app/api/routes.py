@@ -7,20 +7,25 @@ from app.services.exceptions import PDFMergeException
 router = APIRouter()
 
 
+def build_filename(no_reg: str) -> str:
+    return f"merge_{no_reg}.pdf"
+
+
 @router.post("/api/v1/merge-pdf")
 def merge_pdf(request: MergeRequest):
     try:
-        filepath, pdf_stream = process_merge(
-            request.no_aggr,
+        pdf_stream = process_merge(
+            request.no_reg,
             request.pin
         )
+
+        filename = build_filename(request.no_reg)
 
         return StreamingResponse(
             pdf_stream,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": "attachment; filename=merged.pdf",
-                "X-File-Path": filepath
+                "Content-Disposition": f"attachment; filename={filename}"
             }
         )
 
